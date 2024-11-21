@@ -666,8 +666,7 @@ class ComponentManager(component_api.ComponentManager):
     async def invoke(self, event: hikari.InteractionCreateEvent) -> None:
         # <<docstring inherited from api.components.ComponentManager>>
 
-        with context.wrap(parser_base.APP_CTX, event.app):
-
+        with context.wrap(parser_base.REST_CTX, event.app):
             interaction = event.interaction
             if isinstance(interaction, hikari.ComponentInteraction):
                 component = await self.parse_component_interaction(interaction)
@@ -675,15 +674,9 @@ class ComponentManager(component_api.ComponentManager):
                     return
 
                 # Set the contextvar for this invocation so that other methods can
-                # use the same component instance and clear it afterwards.
-                token = _COMPONENT_CTX.set((component, interaction.custom_id))
-                try:
-                    # Invoke the component from the manager it was registered to.
+                # use the same component instance, then invoke the component.
+                with context.wrap(_COMPONENT_CTX, (component, interaction.custom_id)):
                     await component.manager.invoke_component(event, component)
-
-                finally:
-                    _COMPONENT_CTX.reset(token)
-
 
     async def invoke_component(
         self,

@@ -188,12 +188,7 @@ class IntParser(parser_base.Parser[int]):
     implemented.
     """
 
-    def __init__(
-        self,
-        *,
-        signed: bool = True,
-        base: int = 36,
-    ) -> None:
+    def __init__(self, *, signed: bool = True, base: int = 36) -> None:
         if not _BASE_BINARY <= base <= _BASE_MAX:
             message = f"Base must be between {_BASE_BINARY} and {_BASE_MAX}."
             raise ValueError(message)
@@ -635,12 +630,7 @@ class CollectionParser(parser_base.Parser[_CollectionT]):
             The value that is to be dumped.
 
         """
-        return ",".join(
-            [
-                await aio.eval_maybe_coro(self.inner_parser.dumps(part))
-                for part in argument
-            ],
-        )
+        return ",".join([await aio.eval_maybe_coro(self.inner_parser.dumps(part)) for part in argument])
 
 
 @parser_base.register_parser_for(typing.Union)  # pyright: ignore[reportArgumentType]

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import contextvars
 import typing
 
 import typing_extensions
@@ -10,6 +11,8 @@ import typing_extensions
 from ryoshu.api import parser as parser_api
 
 if typing.TYPE_CHECKING:
+    import hikari
+
     from ryoshu.internal import aio
 
 __all__: typing.Sequence[str] = (
@@ -24,6 +27,9 @@ AnyParserT = typing.TypeVar("AnyParserT", bound=AnyParser)
 _PARSERS: dict[type[typing.Any], type[AnyParser]] = {}
 _REV_PARSERS: dict[type[AnyParser], tuple[type, ...]] = {}
 _PARSER_PRIORITY: dict[type[AnyParser], int] = {}
+
+
+REST_CTX: contextvars.ContextVar[hikari.RESTAware] = contextvars.ContextVar("REST_CTX")
 
 
 def register_parser(
@@ -72,9 +78,7 @@ def register_parser_for(
     return wrapper
 
 
-def _issubclass(
-    cls: type, class_or_tuple: type | tuple[type, ...],
-) -> bool:
+def _issubclass(cls: type, class_or_tuple: type | tuple[type, ...]) -> bool:
     try:
         return issubclass(cls, class_or_tuple)
 
