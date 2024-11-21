@@ -440,6 +440,13 @@ class TupleParser(parser_base.SourcedParser[_TupleT]):
         self.inner_parsers = inner_parsers or (StringParser.default(str),)
         self.sep = sep
 
+    @classmethod
+    def default(cls, type_: type[_TupleT]) -> typing_extensions.Self:
+        args = typing.get_args(type_)
+
+        inner_parsers = [parser_base.get_parser(arg) for arg in args]
+        return cls(*inner_parsers)
+
     async def loads(self, argument: str, *, source: object) -> _TupleT:
         """Load a tuple from a string.
 
@@ -565,7 +572,7 @@ class CollectionParser(parser_base.SourcedParser[_CollectionT]):
 
     def __init__(
         self,
-        inner_parser: typing.Optional[parser_base.Parser[typing.Any]] = None,
+        inner_parser: typing.Optional[parser_base.AnyParser] = None,
         *,
         collection_type: typing.Optional[typing.Type[_CollectionT]] = None,
         sep: str = ",",
@@ -578,6 +585,15 @@ class CollectionParser(parser_base.SourcedParser[_CollectionT]):
         self.inner_parser = (
             StringParser.default(str) if inner_parser is None else inner_parser
         )
+
+    @classmethod
+    def default(cls, type_: type[_CollectionT]) -> typing_extensions.Self:
+        origin = typing.get_origin(type_)
+        args = typing.get_args(type_)
+
+        inner_type = next(iter(args), str)  # Get first element, default to str
+        inner_parser = parser_base.get_parser(inner_type)
+        return cls(inner_parser, collection_type=origin)
 
     async def loads(
         self,
@@ -671,6 +687,13 @@ class UnionParser(parser_base.SourcedParser[_T], typing.Generic[_T]):
         # Ensure the NoneParser always comes last.
         if self.optional:
             self.inner_parsers.append(NoneParser.default(type(None)))
+
+    @classmethod
+    def default(cls, type_: type[_TupleT]) -> typing_extensions.Self:
+        args = typing.get_args(type_)
+
+        inner_parsers = [parser_base.get_parser(arg) for arg in args]
+        return cls(*inner_parsers)
 
     @property
     def strict(self) -> bool:

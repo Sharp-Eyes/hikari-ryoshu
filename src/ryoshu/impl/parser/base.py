@@ -122,26 +122,7 @@ def get_parser(type_: type[parser_api.ParserType]) -> ParserWithArgumentType[par
 
     """
     origin = typing.get_origin(type_)
-
-    if not origin:
-        return _get_parser_type(type_).default(type_)
-
-    parser_type = _get_parser_type(origin)
-    type_args = typing.get_args(type_)
-
-    if origin is typing.Union or issubclass(origin, tuple):
-        inner_parsers = [get_parser(arg) for arg in type_args]
-        return parser_type(*inner_parsers)
-
-    if issubclass(origin, typing.Collection):
-        # see ryoshu.parser.builtins.CollectionParser
-        inner_type = next(iter(type_args), str)  # Get first element, default to str
-        inner_parser = get_parser(inner_type)
-        return parser_type(inner_parser, collection_type=origin)  # pyright: ignore
-
-    message = f"Coult not create a parser for type {type_.__name__!r}."
-    raise TypeError(message)
-
+    return _get_parser_type(origin or type_).default(type_)
 
 def is_sourced(
     parser: ParserWithArgumentType[parser_api.ParserType],
