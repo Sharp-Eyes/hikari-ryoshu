@@ -1,12 +1,10 @@
 """Default implementation of select-based components."""
 
-from __future__ import annotations
-
 import abc
 import typing
 
-import attr
 import hikari
+
 from ryoshu import fields
 from ryoshu.api import component as component_api
 from ryoshu.impl.component import base as component_base
@@ -57,9 +55,7 @@ class ManagedTextSelectMenu(ManagedSelectMenu, component_api.ManagedTextSelectMe
     keyword-only arguments.
     """
 
-    options: typing.Sequence[hikari.impl.SelectOptionBuilder] = fields.internal(
-        default=attr.Factory(list)  # pyright: ignore
-    )
+    options: typing.Sequence[hikari.impl.SelectOptionBuilder] = fields.internal(factory=list)
 
     async def into_builder(self) -> hikari.api.TextSelectMenuBuilder[typing.NoReturn]:
         # <<docstring inherited from component_base.ComponentBase>>
@@ -209,9 +205,7 @@ class ManagedChannelSelectMenu(ManagedSelectMenu, component_api.ManagedChannelSe
     keyword-only arguments.
     """
 
-    channel_types: typing.Sequence[hikari.ChannelType] = fields.internal(
-        default=attr.Factory(list)  # pyright: ignore
-    )
+    channel_types: typing.Sequence[hikari.ChannelType] = fields.internal(factory=list)
 
     async def into_builder(self) -> hikari.api.ChannelSelectMenuBuilder:
         # <<docstring inherited from component_base.ComponentBase>>
