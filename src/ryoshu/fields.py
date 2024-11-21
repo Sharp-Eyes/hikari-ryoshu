@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import enum
 import typing
 
 import attrs
 import hikari
-import hikari.internal.enums as hikari_enums
 import typing_extensions
 
 if typing.TYPE_CHECKING:
@@ -25,7 +25,7 @@ NothingType: typing_extensions.TypeAlias = attr._make._Nothing  # pyright: ignor
 NOTHING = attrs.NOTHING
 
 
-class FieldMetadata(hikari_enums.Enum):
+class FieldMetadata(str, enum.Enum):
     """Enum containing keys for field metadata."""
 
     PARSER = 0
@@ -34,7 +34,7 @@ class FieldMetadata(hikari_enums.Enum):
     """Metadata key to store field type information. See :class:`FieldType`."""
 
 
-class FieldType(hikari_enums.Flag):
+class FieldType(enum.Flag):
     """Flag containing field metadata values for the field type.
 
     Note that a field can only ever be one of these types. This is a flag for
@@ -124,10 +124,7 @@ def is_field_of_type(field: attrs.Attribute[typing.Any], kind: FieldType) -> boo
 
 
 def get_fields(cls: type, /, *, kind: FieldType = FieldType.ALL) -> typing.Sequence[attrs.Attribute[typing.Any]]:
-    r"""Get the attributes of an attrs class.
-
-    This wraps :func:`attrs.fields` to be less strict typing-wise and has
-    special handling for internal fields.
+    r"""Get the Ryoshu fields of a class.
 
     Parameters
     ----------
