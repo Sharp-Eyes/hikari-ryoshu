@@ -8,7 +8,5 @@ This allows users to slot their own implementations into the library that
 properly interface with the existing logic, thus maintaining functionality.
 """
 
-from __future__ import annotations
-
 from ryoshu.api.component import *
 from ryoshu.api.parser import *
