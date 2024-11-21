@@ -1,6 +1,4 @@
 # pyright: reportImportCycles = false
-# pyright: reportWildcardImportFromLibrary = false
-# ^ This is a false positive as it is confused with site-packages' disnake.
 
 """Default concrete implementations for types in ``ryoshu.api``."""
 
