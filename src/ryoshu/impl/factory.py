@@ -36,10 +36,7 @@ class ComponentFactory(
     """The component type that this factory builds."""
 
     @classmethod
-    def from_component(
-        cls,
-        component: type[component_api.ManagedComponent],
-    ) -> typing_extensions.Self:
+    def from_component(cls, component: type[component_api.ManagedComponent]) -> typing_extensions.Self:
         # <<docstring inherited from api.components.ComponentFactory>>
         parser: typing.Optional[parser_api.AnyParser]
 
@@ -51,7 +48,7 @@ class ComponentFactory(
                 field_type = field.type or str
                 parser = parser_base.get_parser(field_type).default(field_type)
 
-            assert isinstance(parser, (parser_base.Parser, parser_base.SourcedParser))
+            assert isinstance(parser, parser_base.Parser)
             parsers[field.name] = parser
 
         return cls(
@@ -59,13 +56,7 @@ class ComponentFactory(
             typing.cast(type[component_api.ComponentT], component),
         )
 
-    async def loads_param(
-        self,
-        param: str,
-        value: str,
-        *,
-        source: object,
-    ) -> object:
+    async def loads_param(self, param: str, value: str) -> object:
         """Parse a single custom id parameter to the desired type with its parser.
 
         Parameters
@@ -84,13 +75,9 @@ class ComponentFactory(
 
         """
         parser = self.parsers[param]
-        return await parser_base.try_loads(parser, value, source=source)
+        return await aio.eval_maybe_coro(parser.loads(value))
 
-    async def dumps_param(
-        self,
-        param: str,
-        value: object,
-    ) -> str:
+    async def dumps_param(self, param: str, value: object) -> str:
         """Parse a single custom id parameter to its string form for custom id storage.
 
         Parameters
@@ -110,11 +97,7 @@ class ComponentFactory(
         result = parser.dumps(value)
         return await aio.eval_maybe_coro(result)
 
-    async def load_params(
-        self,
-        source: object,
-        params: typing.Sequence[str],
-    ) -> typing.Mapping[str, object]:
+    async def load_params(self, params: typing.Sequence[str], /) -> typing.Mapping[str, object]:
         # <<docstring inherited from api.components.ComponentFactory>>
 
         if len(params) != len(self.parsers):
@@ -127,14 +110,12 @@ class ComponentFactory(
             raise ValueError(message)
 
         return {
-            param: await self.loads_param(param, value, source=source)
+            param: await self.loads_param(param, value)
             for param, value in zip(self.parsers, params)
             if value
         }
 
-    async def dump_params(
-        self, component: component_api.ComponentT,
-    ) -> typing.Mapping[str, str]:
+    async def dump_params(self, component: component_api.ComponentT, /) -> typing.Mapping[str, str]:
         # <<docstring inherited from api.components.ComponentFactory>>
 
         return {
@@ -144,13 +125,12 @@ class ComponentFactory(
 
     async def build_component(
         self,
-        reference: object,
         params: typing.Sequence[str],
         component_params: typing.Optional[typing.Mapping[str, object]] = None,
     ) -> component_api.ComponentT:
         # <<docstring inherited from api.components.ComponentFactory>>
 
-        parsed = await self.load_params(reference, params)
+        parsed = await self.load_params(params)
         return self.component(**parsed, **(component_params or {}))
 
 
@@ -181,19 +161,18 @@ class NoopFactory(component_api.ComponentFactory[typing.Any]):
 
         return cls()
 
-    async def load_params(self, *_: object) -> typing.NoReturn:
+    async def load_params(self, component: object, /) -> typing.NoReturn:
         # <<docstring inherited from api.components.ComponentFactory>>
 
         raise NotImplementedError
 
-    async def dump_params(self, *_: object) -> typing.NoReturn:
+    async def dump_params(self, component: object, /) -> typing.NoReturn:
         # <<docstring inherited from api.components.ComponentFactory>>
 
         raise NotImplementedError
 
     async def build_component(
         self,
-        reference: object,
         params: typing.Sequence[str],
         component_params: typing.Optional[typing.Mapping[str, object]] = None,
     ) -> typing.NoReturn:

@@ -370,11 +370,7 @@ class ComponentFactory(typing.Protocol[ComponentT]):
     __slots__: typing.Sequence[str] = ()
 
     @classmethod
-    def from_component(
-        cls,
-        component: type[ComponentT],
-        /,
-    ) -> typing_extensions.Self:
+    def from_component(cls, component: type[ComponentT], /) -> typing_extensions.Self:
         """Create a component factory from the provided component.
 
         This takes the component's fields into account and generates the
@@ -390,12 +386,7 @@ class ComponentFactory(typing.Protocol[ComponentT]):
         ...
 
     # TODO: Update docstring
-    async def load_params(
-        self,
-        source: typing.Any,  # noqa: ANN401
-        params: typing.Sequence[str],
-        /,
-    ) -> typing.Mapping[str, object]:
+    async def load_params(self, params: typing.Sequence[str], /) -> typing.Mapping[str, object]:
         """Create a new component instance from the provided custom id.
 
         This requires the custom id to already have been decomposed into
@@ -404,8 +395,6 @@ class ComponentFactory(typing.Protocol[ComponentT]):
 
         Parameters
         ----------
-        source
-            The source object to use for creating the component instance.
         params
             A mapping of field name to to-be-parsed field values.
 
@@ -429,7 +418,6 @@ class ComponentFactory(typing.Protocol[ComponentT]):
 
     async def build_component(
         self,
-        reference: typing.Any,  # noqa: ANN401
         params: typing.Sequence[str],
         component_params: typing.Optional[typing.Mapping[str, object]],
     ) -> ComponentT:
@@ -440,8 +428,6 @@ class ComponentFactory(typing.Protocol[ComponentT]):
 
         Parameters
         ----------
-        reference
-            The reference object to use for creating the component instance.
         params
             A sequence of to-be-parsed field values.
         component_params

@@ -13,6 +13,8 @@ import typing_extensions
 
 from ryoshu import fields
 from ryoshu.api import component as component_api
+from ryoshu.impl.parser import base as parser_base
+from ryoshu.internal import context
 
 __all__: typing.Sequence[str] = ("ComponentManager", "get_manager", "check_manager")
 
@@ -353,14 +355,12 @@ class ComponentManager(component_api.ComponentManager):
             for component in row
             if component.custom_id == interaction.custom_id
         ))
-        return await self.parse_raw_component(raw_component, reference=interaction)
+        return await self.parse_raw_component(raw_component)
 
     async def parse_raw_component(
         self,
         component: typing.Union[hikari.components.ButtonComponent, hikari.components.SelectMenuComponent],
         /,
-        *,
-        reference: typing.Optional[object],
     ) -> typing.Optional[component_api.ManagedComponent]:
         """Parse a message component into a ryoshu component given a reference.
 
@@ -419,7 +419,7 @@ class ComponentManager(component_api.ComponentManager):
         if isinstance(component, hikari.components.TextSelectMenuComponent):
             component_params["options"] = _transform_select_options(component_params["options"])
 
-        return await component_type.factory.build_component(reference, params, component_params=component_params)
+        return await component_type.factory.build_component(params, component_params=component_params)
 
     async def parse_message_components(
         self,
@@ -475,7 +475,7 @@ class ComponentManager(component_api.ComponentManager):
                     current_component = None  # Prevent re-entry.
 
                 else:
-                    new_component = await self.parse_raw_component(component, reference=message)
+                    new_component = await self.parse_raw_component(component)
                     if new_component:
                         rich_components.append(new_component)
 
@@ -666,21 +666,23 @@ class ComponentManager(component_api.ComponentManager):
     async def invoke(self, event: hikari.InteractionCreateEvent) -> None:
         # <<docstring inherited from api.components.ComponentManager>>
 
-        interaction = event.interaction
-        if isinstance(interaction, hikari.ComponentInteraction):
-            component = await self.parse_component_interaction(interaction)
-            if not (component and component.manager):
-                return
+        with context.wrap(parser_base.APP_CTX, event.app):
 
-            # Set the contextvar for this invocation so that other methods can
-            # use the same component instance and clear it afterwards.
-            token = _COMPONENT_CTX.set((component, interaction.custom_id))
-            try:
-                # Invoke the component from the manager it was registered to.
-                await component.manager.invoke_component(event, component)
+            interaction = event.interaction
+            if isinstance(interaction, hikari.ComponentInteraction):
+                component = await self.parse_component_interaction(interaction)
+                if not (component and component.manager):
+                    return
 
-            finally:
-                _COMPONENT_CTX.reset(token)
+                # Set the contextvar for this invocation so that other methods can
+                # use the same component instance and clear it afterwards.
+                token = _COMPONENT_CTX.set((component, interaction.custom_id))
+                try:
+                    # Invoke the component from the manager it was registered to.
+                    await component.manager.invoke_component(event, component)
+
+                finally:
+                    _COMPONENT_CTX.reset(token)
 
 
     async def invoke_component(
