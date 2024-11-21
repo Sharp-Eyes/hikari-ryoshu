@@ -191,8 +191,8 @@ class ComponentBase(component_api.ManagedComponent, metaclass=ComponentMeta):
         if not self.manager:
             message = (
                 "A component must be registered to a manager to create a custom"
-                "id. Please register this component to a manager before trying"
-                "to create a custom id for it."
+                " id. Please register this component to a manager before trying"
+                " to create a custom id for it."
             )
             raise RuntimeError(message)
 
