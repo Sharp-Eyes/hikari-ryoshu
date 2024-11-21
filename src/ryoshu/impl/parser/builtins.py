@@ -396,7 +396,7 @@ def _resolve_collection(type_: type[_CollectionT]) -> type[_CollectionT]:
 
 # Elevated priority so that tuples are prioritised over generic collections
 @parser_base.register_parser_for(tuple, priority=10)
-class TupleParser(parser_base.SourcedParser[_TupleT]):
+class TupleParser(parser_base.Parser[_TupleT]):
     r"""Parser type with support for :class:`tuple`\s.
 
     The benefit of a tuple parser is fixed-length checks and the ability to set
@@ -463,7 +463,7 @@ class TupleParser(parser_base.SourcedParser[_TupleT]):
         inner_parsers = [parser_base.get_parser(arg) for arg in args]
         return cls(*inner_parsers, tuple_cls=type_)
 
-    async def loads(self, argument: str, *, source: object) -> _TupleT:
+    async def loads(self, argument: str) -> _TupleT:
         """Load a tuple from a string.
 
         Parameters
@@ -473,11 +473,6 @@ class TupleParser(parser_base.SourcedParser[_TupleT]):
 
             This is split over :attr:`sep` and then each individual substring
             is passed to its respective inner parser.
-        source:
-            The source to use for parsing.
-
-            If any of the inner parsers are sourced, this is automatically
-            passed to them.
 
         Raises
         ------
@@ -497,7 +492,7 @@ class TupleParser(parser_base.SourcedParser[_TupleT]):
         initialiser = getattr(self.tuple_cls, "_make", self.tuple_cls)
         return initialiser(
             [
-                await parser_base.try_loads(parser, part, source=source)
+                await aio.eval_maybe_coro(parser.loads(part))
                 for parser, part in zip(self.inner_parsers, parts)
             ],
         )
@@ -530,7 +525,7 @@ class TupleParser(parser_base.SourcedParser[_TupleT]):
 
 
 @parser_base.register_parser_for(typing.Collection)
-class CollectionParser(parser_base.SourcedParser[_CollectionT]):
+class CollectionParser(parser_base.Parser[_CollectionT]):
     r"""Parser type with support for :class:`typing.Collection`\s.
 
     This supports types such as :class:`list`, :class:`set`, etc.; but also
@@ -610,12 +605,7 @@ class CollectionParser(parser_base.SourcedParser[_CollectionT]):
         inner_parser = parser_base.get_parser(inner_type)
         return cls(inner_parser, collection_type=origin)
 
-    async def loads(
-        self,
-        argument: str,
-        *,
-        source: typing.Optional[object] = None,
-    ) -> _CollectionT:
+    async def loads(self, argument: str) -> _CollectionT:
         """Load a collection from a string.
 
         Parameters
@@ -625,15 +615,11 @@ class CollectionParser(parser_base.SourcedParser[_CollectionT]):
 
             This is split over :attr:`sep` and then each individual substring
             is passed to its respective inner parser.
-        source:
-            The source to use for parsing.
-
-            If the inner parser is sourced, this is automatically passed to it.
 
         """
         # TODO: Maybe make this a generator instead of a list?
         parsed = [
-            await parser_base.try_loads(self.inner_parser, part, source=source)
+            await aio.eval_maybe_coro(self.inner_parser.loads(part))
             for part in argument.split(self.sep)
             if not part.isspace()  # TODO: Verify if this should be removed
         ]
@@ -658,7 +644,7 @@ class CollectionParser(parser_base.SourcedParser[_CollectionT]):
 
 
 @parser_base.register_parser_for(typing.Union)  # pyright: ignore[reportArgumentType]
-class UnionParser(parser_base.SourcedParser[_T], typing.Generic[_T]):
+class UnionParser(parser_base.Parser[_T], typing.Generic[_T]):
     r"""Parser type with support for :class:`~typing.Union`\s.
 
     The provided parsers are sequentially tried until one passes. If none work,
@@ -735,7 +721,7 @@ class UnionParser(parser_base.SourcedParser[_T], typing.Generic[_T]):
         assert isinstance(none_parser, NoneParser)
         none_parser.strict = strict
 
-    async def loads(self, argument: str, *, source: object) -> _T:
+    async def loads(self, argument: str) -> _T:
         """Load a union of types from a string.
 
         If :attr:`optional` is ``True`` and :attr:`strict` is ``False``, this
@@ -749,10 +735,6 @@ class UnionParser(parser_base.SourcedParser[_T], typing.Generic[_T]):
             Each inner parser is tried in the order they are provided, and the
             first to load the ``argument`` successfully short-circuits and
             returns.
-        source:
-            The source to use for parsing.
-
-            If the inner parser is sourced, this is automatically passed to it.
 
         Raises
         ------
@@ -768,7 +750,7 @@ class UnionParser(parser_base.SourcedParser[_T], typing.Generic[_T]):
         # Try all parsers sequentially. If any succeeds, return the result.
         for parser in self.inner_parsers:
             with contextlib.suppress(Exception):
-                return await parser_base.try_loads(parser, argument, source=source)
+                return await aio.eval_maybe_coro(parser.loads(argument))
 
         message = "Failed to parse input to any type in the Union."
         raise RuntimeError(message)

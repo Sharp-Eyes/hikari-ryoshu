@@ -38,8 +38,8 @@ def _get_enum_type(enum_class: type[_AnyEnum]) -> typing.Optional[type]:
 
 
 # Should have elevated priority so that e.g. Flag is prioritised over int.
-@parser_base.register_parser_for(enum.Enum, hikari_enum.Enum, enum.Flag, hikari_enum.Flag, priority=10)
-class EnumParser(parser_base.SourcedParser[_EnumT]):
+@parser_base.register_parser_for(enum.Enum, hikari_enum.Enum, enum.Flag, hikari_enum.Flag, priority=20)
+class EnumParser(parser_base.Parser[_EnumT]):
     """Parser type for enums and flags.
 
     Enums and flags are stored by value instead of by name. This makes parsing
@@ -109,7 +109,7 @@ class EnumParser(parser_base.SourcedParser[_EnumT]):
         value_type = _get_enum_type(type_)
         return cls(type_, store_by_value=value_type is not None)
 
-    async def loads(self, argument: str, *, source: object) -> _EnumT:
+    async def loads(self, argument: str) -> _EnumT:
         """Load an enum member from a string.
 
         This uses the underlying :attr:`value_parser`.
@@ -132,7 +132,7 @@ class EnumParser(parser_base.SourcedParser[_EnumT]):
             passed to them.
 
         """
-        parsed = await parser_base.try_loads(self.value_parser, argument, source=source)
+        parsed = await aio.eval_maybe_coro(self.value_parser.loads(argument))
 
         if self.store_by_value:
             return self.enum_class(parsed)

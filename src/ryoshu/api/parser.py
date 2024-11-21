@@ -42,6 +42,21 @@ class Parser(typing.Protocol[ParserType]):
 
     __slots__: typing.Sequence[str] = ()
 
+    @classmethod
+    def default(cls, type_: type[ParserType], /) -> typing_extensions.Self:
+        """Return the default implementation of this parser type.
+
+        By default, this will just create the parser class with no arguments,
+        but this can be overwritten on child classes for customised behaviour.
+
+        Returns
+        -------
+        Parser:
+            The default parser instance for this parser type.
+
+        """
+        ...
+
     def loads(self, argument: str, /) -> aio.MaybeCoroutine[ParserType]:
         r"""Load a value from a string and apply the necessary conversion logic.
 

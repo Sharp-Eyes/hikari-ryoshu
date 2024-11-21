@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
+import abc
 import typing
 
 import typing_extensions
 
 from ryoshu.api import parser as parser_api
-from ryoshu.internal import aio
+
+if typing.TYPE_CHECKING:
+    from ryoshu.internal import aio
 
 __all__: typing.Sequence[str] = (
     "register_parser",
     "get_parser",
     "Parser",
-    "SourcedParser",
 )
+
+AnyParser: typing_extensions.TypeAlias = "Parser[typing.Any]"
+AnyParserT = typing.TypeVar("AnyParserT", bound=AnyParser)
 
 _PARSERS: dict[type[typing.Any], type[AnyParser]] = {}
 _REV_PARSERS: dict[type[AnyParser], tuple[type, ...]] = {}
@@ -22,7 +27,7 @@ _PARSER_PRIORITY: dict[type[AnyParser], int] = {}
 
 
 def register_parser(
-    parser: type[ParserWithArgumentType[parser_api.ParserType]],
+    parser: type[Parser[parser_api.ParserType]],
     *types: type[parser_api.ParserType],
     priority: int = 0,
     force: bool = True,
@@ -80,7 +85,7 @@ def _issubclass(
         return cls is class_or_tuple
 
 
-def _get_parser_type(type_: type[parser_api.ParserType]) -> type[ParserWithArgumentType[parser_api.ParserType]]:
+def _get_parser_type(type_: type[parser_api.ParserType]) -> type[Parser[parser_api.ParserType]]:
     # Fast lookup...
     if type_ in _PARSERS:
         return _PARSERS[type_]
@@ -99,7 +104,7 @@ def _get_parser_type(type_: type[parser_api.ParserType]) -> type[ParserWithArgum
 
 
 # TODO: Maybe cache this?
-def get_parser(type_: type[parser_api.ParserType]) -> ParserWithArgumentType[parser_api.ParserType]:
+def get_parser(type_: type[parser_api.ParserType]) -> Parser[parser_api.ParserType]:
     r"""Get the default parser for the provided type.
 
     Note that type annotations such as ``Union[int, str]`` are also valid.
@@ -123,53 +128,8 @@ def get_parser(type_: type[parser_api.ParserType]) -> ParserWithArgumentType[par
     origin = typing.get_origin(type_)
     return _get_parser_type(origin or type_).default(type_)
 
-def is_sourced(
-    parser: ParserWithArgumentType[parser_api.ParserType],
-) -> typing_extensions.TypeIs[SourcedParser[parser_api.ParserType]]:
-    """Typeguard function to check whether a parser is sourced."""
-    return parser.is_sourced
 
-
-async def try_loads(
-    parser: ParserWithArgumentType[parser_api.ParserType],
-    argument: str,
-    *,
-    source: object | None = None,
-) -> parser_api.ParserType:
-    return await aio.eval_maybe_coro(
-        parser.loads(argument, source=source)
-        if is_sourced(parser)
-        else parser.loads(argument),
-    )
-
-
-class _ParserBase(typing.Protocol[parser_api.ParserType]):
-    @classmethod
-    def default(cls, type_: type[parser_api.ParserType], /) -> typing_extensions.Self:  # noqa: ARG003
-        """Return the default implementation of this parser type.
-
-        By default, this will just create the parser class with no arguments,
-        but this can be overwritten on child classes for customised behaviour.
-
-        Returns
-        -------
-        Parser:
-            The default parser instance for this parser type.
-
-        """
-        return cls()
-
-    def dumps(self, argument: parser_api.ParserType, /) -> aio.MaybeCoroutine[str]:
-        # <<Docstring inherited from parser_api.Parser>>
-        ...
-
-
-@typing.runtime_checkable
-class Parser(
-    _ParserBase[parser_api.ParserType],
-    parser_api.Parser[parser_api.ParserType],
-    typing.Protocol[parser_api.ParserType],
-):
+class Parser(parser_api.Parser[parser_api.ParserType], abc.ABC):
     """Class that handles parsing of one custom id field to and from a desired type.
 
     A parser contains two main methods, :meth:`loads` and :meth:`dumps`.
@@ -178,7 +138,10 @@ class Parser(
     back into a string.
     """
 
-    is_sourced: typing.ClassVar[typing.Literal[False]] = False
+    @classmethod
+    def default(cls, type_: type[parser_api.ParserType], /) -> typing_extensions.Self:  # noqa: ARG003
+        # <<Docstring inherited from parser_api.Parser>>
+        return cls()
 
     def loads(
         self, argument: typing.Any, /,  # noqa: ANN401
@@ -186,37 +149,6 @@ class Parser(
         # <<Docstring inherited from parser_api.Parser>>
         ...
 
-
-@typing.runtime_checkable
-class SourcedParser(
-    _ParserBase[parser_api.ParserType],
-    parser_api.SourcedParser[parser_api.ParserType, parser_api.SourceType],
-    typing.Protocol[parser_api.ParserType, parser_api.SourceType],
-):
-    """Class that handles parsing of one custom id field to and from a desired type.
-
-    A parser contains two main methods, :meth:`loads` and :meth:`dumps`.
-    ``loads``, like :func:`json.loads` serves to turn a string value into
-    a different type. Similarly, ``dumps`` serves to convert that type
-    back into a string.
-    """
-
-    is_sourced: typing.ClassVar[typing.Literal[True]] = True
-
-    def loads(
-        self,
-        argument: typing.Any,  # noqa: ANN401
-        /,
-        *,
-        source: parser_api.SourceType,
-    ) -> aio.MaybeCoroutine[parser_api.ParserType]:
+    def dumps(self, argument: parser_api.ParserType, /) -> aio.MaybeCoroutine[str]:
         # <<Docstring inherited from parser_api.Parser>>
         ...
-
-
-ParserWithArgumentType: typing_extensions.TypeAlias = typing.Union[
-    Parser[parser_api.ParserType],
-    SourcedParser[parser_api.ParserType, typing.Any],
-]
-AnyParser: typing_extensions.TypeAlias = ParserWithArgumentType[typing.Any]
-AnyParserT = typing.TypeVar("AnyParserT", bound=AnyParser)
