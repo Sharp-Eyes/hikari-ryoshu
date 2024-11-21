@@ -1,7 +1,5 @@
 """Default implementation of the component manager api."""
 
-from __future__ import annotations
-
 import contextlib
 import contextvars
 import sys
@@ -11,18 +9,18 @@ import weakref
 import attrs
 import hikari
 import hikari.components
-from ryoshu import fields
-# from ryoshu import interaction as interaction_impl
-from ryoshu.api import component as component_api
+import typing_extensions
 
-if typing.TYPE_CHECKING:
-    import typing_extensions
+from ryoshu import fields
+from ryoshu.api import component as component_api
 
 __all__: typing.Sequence[str] = ("ComponentManager", "get_manager", "check_manager")
 
 
 _ROOT = sys.intern("root")
-_COMPONENT_CTX: contextvars.ContextVar[tuple[component_api.ManagedComponent, str]] = contextvars.ContextVar("_COMPONENT_CTX")
+_COMPONENT_CTX: contextvars.ContextVar[tuple[component_api.ManagedComponent, str]] = contextvars.ContextVar(
+    "_COMPONENT_CTX",
+)
 
 T = typing.TypeVar("T")
 
@@ -42,7 +40,7 @@ ExceptionHandlerFunc = typing.Callable[
     typing.Coroutine[typing.Any, typing.Any, typing.Optional[bool]],
 ]
 ExceptionHandlerFuncT = typing.TypeVar(
-    "ExceptionHandlerFuncT", bound=ExceptionHandlerFunc
+    "ExceptionHandlerFuncT", bound=ExceptionHandlerFunc,
 )
 
 ComponentT = typing.TypeVar("ComponentT", bound=component_api.ManagedComponent)
@@ -50,7 +48,7 @@ ComponentType = type[component_api.ManagedComponent]
 
 
 def _transform_select_options(
-    options: typing.Sequence[hikari.SelectMenuOption]
+    options: typing.Sequence[hikari.SelectMenuOption],
 ) -> typing.Sequence[hikari.api.SelectOptionBuilder]:
     new_options: list[hikari.impl.SelectOptionBuilder] = []
     for option in options:
@@ -76,12 +74,12 @@ def _minimise_count(count: int) -> str:
     return byte.decode("latin-1")
 
 
+_MAX_COUNT: typing.Final = 24  # Max 25 components on a message, 0~24 inclusive is 25 options.
 _COUNT_CHARS: typing.Final[tuple[str, ...]] = tuple(
-    map(_minimise_count, range(25))
+    map(_minimise_count, range(_MAX_COUNT+1)),
 )
 _DEFAULT_SEP: typing.Final[str] = sys.intern("|")
 _DEFAULT_COUNT: typing.Final[typing.Literal[True]] = True
-
 
 @attrs.define
 class _ModuleData:
@@ -167,7 +165,7 @@ class ComponentManager(component_api.ComponentManager):
     )
 
     _bot: typing.Optional[hikari.GatewayBotAware]
-    _children: typing.Set[ComponentManager]
+    _children: set[typing_extensions.Self]
     _components: weakref.WeakValueDictionary[str, ComponentType]
     _count: typing.Optional[bool]
     _counter: int
@@ -186,7 +184,7 @@ class ComponentManager(component_api.ComponentManager):
         count: typing.Optional[bool] = None,
         sep: typing.Optional[str] = None,
         bot: typing.Optional[hikari.GatewayBotAware] = None,
-    ):
+    ) -> None:
         self._bot = None
         self._name = name
         self._children = set()
@@ -224,19 +222,19 @@ class ComponentManager(component_api.ComponentManager):
         raise RuntimeError(message)
 
     @property
-    def name(self) -> str:  # noqa: D102
+    def name(self) -> str:
         # <<docstring inherited from api.components.ComponentManager>>
 
         return self._name
 
     @property
-    def children(self) -> typing.Set[ComponentManager]:  # noqa: D102
+    def children(self) -> typing.Collection["ComponentManager"]:
         # <<docstring inherited from api.components.ComponentManager>>
 
         return self._children
 
     @property
-    def components(self) -> typing.Mapping[str, ComponentType]:  # noqa: D102
+    def components(self) -> typing.Mapping[str, ComponentType]:
         # <<docstring inherited from api.components.ComponentManager>>
 
         return self._components
@@ -265,7 +263,7 @@ class ComponentManager(component_api.ComponentManager):
         return _recurse_parents_getattr(self, "_count", _DEFAULT_COUNT)
 
     @property
-    def counter(self) -> int:  # noqa: D102
+    def counter(self) -> int:
         # <<docstring inherited from api.components.ComponentManager>>
 
         return self._counter
@@ -284,7 +282,7 @@ class ComponentManager(component_api.ComponentManager):
         return _recurse_parents_getattr(self, "_sep", _DEFAULT_SEP)
 
     @property
-    def parent(self) -> typing.Optional[ComponentManager]:  # noqa: D102
+    def parent(self) -> typing.Optional["ComponentManager"]:
         # <<docstring inherited from api.components.ComponentManager>>
 
         if "." not in self.name:
@@ -306,13 +304,13 @@ class ComponentManager(component_api.ComponentManager):
         if sep is not hikari.UNDEFINED:
             self._sep = sep
 
-    def make_identifier(self, component_type: ComponentType) -> str:  # noqa: D102
+    def make_identifier(self, component_type: ComponentType) -> str:
         # <<docstring inherited from api.components.ComponentManager>>
 
         return component_type.__name__
 
-    def get_identifier(  # noqa: D102
-        self, custom_id: str
+    def get_identifier(
+        self, custom_id: str,
     ) -> tuple[str, typing.Sequence[str]]:
         # <<docstring inherited from api.components.ComponentManager>>
 
@@ -324,11 +322,11 @@ class ComponentManager(component_api.ComponentManager):
 
         return name, params
 
-    def increment(self) -> str:  # noqa: D102
+    def increment(self) -> str:
         count = _minimise_count(self._counter)
 
         self._counter += 1
-        if self._counter > 24:
+        if self._counter > _MAX_COUNT:
             self._counter = 0
 
         return count
@@ -345,8 +343,8 @@ class ComponentManager(component_api.ComponentManager):
 
         return self.sep.join([identifier, *dumped_params.values()])
 
-    async def parse_component_interaction(  # noqa: D102
-        self, interaction: hikari.ComponentInteraction
+    async def parse_component_interaction(
+        self, interaction: hikari.ComponentInteraction,
     ) -> typing.Optional[component_api.ManagedComponent]:
         # <<docstring inherited from api.components.ComponentManager>>
         raw_component = next(iter(
@@ -477,10 +475,10 @@ class ComponentManager(component_api.ComponentManager):
                     current_component = None  # Prevent re-entry.
 
                 else:
-                    new_component = await self.parse_raw_component(component, reference=message)    
+                    new_component = await self.parse_raw_component(component, reference=message)
                     if new_component:
                         rich_components.append(new_component)
-                    
+
                     new_row.append(new_component or component)
 
         return new_rows, rich_components
@@ -498,7 +496,7 @@ class ComponentManager(component_api.ComponentManager):
 
         return wrapper
 
-    def register_component(  # noqa: D102
+    def register_component(
         self,
         component_type: type[ComponentT],
         *,
@@ -510,7 +508,7 @@ class ComponentManager(component_api.ComponentManager):
 
         root_manager = get_manager(_ROOT)
 
-        if resolved_identifier in root_manager._components:
+        if resolved_identifier in root_manager._components:  # noqa: SLF001
             # NOTE: This occurs when a component is registered while another
             #       component with the same identifier already exists.
             #
@@ -521,7 +519,7 @@ class ComponentManager(component_api.ComponentManager):
             #       - This is an actual user error. If we were to silently
             #         overwrite the old component, it would unexpectedly go
             #         unresponsive. Instead, we raise an exception to the user.
-            old_module_data = root_manager._module_data[resolved_identifier]
+            old_module_data = root_manager._module_data[resolved_identifier]  # noqa: SLF001
             if not module_data.is_reload_of(old_module_data):
                 message = (
                     "Cannot register component with duplicate identifier"
@@ -535,13 +533,13 @@ class ComponentManager(component_api.ComponentManager):
         component_type.manager = self
 
         for manager in _recurse_parents(self):
-            manager._components[resolved_identifier] = component_type
-            manager._identifiers[component_type.__name__] = resolved_identifier
-            manager._module_data[resolved_identifier] = module_data
+            manager._components[resolved_identifier] = component_type  # noqa: SLF001
+            manager._identifiers[component_type.__name__] = resolved_identifier  # noqa: SLF001
+            manager._module_data[resolved_identifier] = module_data  # noqa: SLF001
 
         return component_type
 
-    def deregister_component(self, component_type: ComponentType) -> None:  # noqa: D102
+    def deregister_component(self, component_type: ComponentType) -> None:
         # <<docstring inherited from api.components.ComponentManager>>
 
         identifier = self.make_identifier(component_type)
@@ -562,10 +560,10 @@ class ComponentManager(component_api.ComponentManager):
 
         # Deregister from the current manager and all parent managers.
         for manager in _recurse_parents(component.manager):
-            manager._components.pop(identifier)
-            manager._module_data.pop(identifier)
+            manager._components.pop(identifier)  # noqa: SLF001
+            manager._module_data.pop(identifier)  # noqa: SLF001
 
-    def add_to_bot(self, bot: hikari.GatewayBotAware) -> None:  # noqa: D102
+    def add_to_bot(self, bot: hikari.GatewayBotAware) -> None:
         # <<docstring inherited from api.components.ComponentManager>>
 
         # Ensure we don't duplicate the listeners.
@@ -577,7 +575,7 @@ class ComponentManager(component_api.ComponentManager):
 
         self._bot = bot
 
-    def remove_from_bot(self, bot: hikari.GatewayBotAware) -> None:  # noqa: D102
+    def remove_from_bot(self, bot: hikari.GatewayBotAware) -> None:
         # <<docstring inherited from api.components.ComponentManager>>
 
         # Bot.remove_listener silently ignores if the event doesn't exist,
@@ -619,7 +617,7 @@ class ComponentManager(component_api.ComponentManager):
         Callable[[:class:`ManagedComponent`, :class:`hikari.InteractionCreateEvent`], AsyncGenerator[None, None]]
             The function that was just registered.
 
-        """  # noqa: E501
+        """
         self._callback_wrapper = contextlib.asynccontextmanager(func)
         return func
 
@@ -661,11 +659,11 @@ class ComponentManager(component_api.ComponentManager):
         Callable[[:class:`RichComponent`, :class:`disnake.Interaction`, :class:`Exception`], None]
             The function that was just registered.
 
-        """  # noqa: E501
+        """
         self._exception_handler = func
         return func
 
-    async def invoke(self, event: hikari.InteractionCreateEvent) -> None:  # noqa: D102
+    async def invoke(self, event: hikari.InteractionCreateEvent) -> None:
         # <<docstring inherited from api.components.ComponentManager>>
 
         interaction = event.interaction
@@ -689,7 +687,7 @@ class ComponentManager(component_api.ComponentManager):
         self,
         event: hikari.InteractionCreateEvent,
         component: component_api.ManagedComponent,
-    ) -> None:  # noqa: D102
+    ) -> None:
         # <<docstring inherited from api.components.ComponentManager>>
 
         # We need to traverse all managers twice so we store them in a list here.
@@ -708,7 +706,7 @@ class ComponentManager(component_api.ComponentManager):
                 # If none raised, we run the callback.
                 await component.callback(event)
 
-        except Exception as exception:  # noqa: BLE001
+        except Exception as exception:
             # We intentionally catch any non-BaseException here.
             # In case an exception occurred, try handling the error with error
             # handlers starting from the manager the component is registered to,
@@ -904,7 +902,7 @@ def _recurse_parents(manager: ComponentManager) -> typing.Iterator[ComponentMana
 
 
 def _recurse_parents_getattr(
-    manager: ComponentManager, attribute: str, default: T
+    manager: ComponentManager, attribute: str, default: T,
 ) -> T:
     for parent in _recurse_parents(manager):
         value = getattr(parent, attribute)
@@ -949,7 +947,7 @@ def get_manager(name: typing.Optional[str] = None) -> ComponentManager:
     if "." in name:
         root, _ = name.rsplit(".", 1)
         parent = get_manager(root)
-        parent.children.add(manager)
+        parent._children.add(manager) # pyright: ignore[reportPrivateUsage]  # noqa: SLF001
 
     return manager
 

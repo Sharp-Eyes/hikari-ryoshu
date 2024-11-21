@@ -117,9 +117,9 @@ class DatetimeParser(parser_base.Parser[datetime.datetime]):
         timezone: datetime.timezone = datetime.timezone.utc,
         strict: bool = True,
         int_parser: typing.Optional[builtins_parsers.IntParser] = None,
-    ):
-        if resolution < 1e-6:
-            message = f"Resolution must be greater than 1e-6, got {resolution}."
+    ) -> None:
+        if resolution < Resolution.MICROS:
+            message = f"Resolution must be greater than or equal to 1e-6, got {resolution}."
             raise ValueError(message)
 
         if resolution < 1 and resolution not in _VALID_BASE_10:
@@ -239,9 +239,9 @@ class TimedeltaParser(parser_base.Parser[datetime.timedelta]):
         *,
         resolution: typing.Union[int, float] = Resolution.SECONDS,
         int_parser: typing.Optional[builtins_parsers.IntParser] = None,
-    ):
-        if resolution < 1e-6:
-            message = f"Resolution must be greater than 1e-6, got {resolution}."
+    ) -> None:
+        if resolution < Resolution.MICROS:
+            message = f"Resolution must be greater than or equal to 1e-6, got {resolution}."
             raise ValueError(message)
 
         if resolution < 1 and resolution not in _VALID_BASE_10:
@@ -298,7 +298,7 @@ class DateParser(parser_base.Parser[datetime.date]):
     default date parser will also return compressed results.
     """
 
-    def __init__(self, *, int_parser: typing.Optional[builtins_parsers.IntParser]):
+    def __init__(self, *, int_parser: typing.Optional[builtins_parsers.IntParser]) -> None:
         self.int_parser = int_parser or builtins_parsers.IntParser.default(int)
 
     def loads(self, argument: str) -> datetime.date:
@@ -378,7 +378,7 @@ class TimeParser(parser_base.Parser[datetime.time]):
         timezone: datetime.timezone = datetime.timezone.utc,
         timedelta_parser: typing.Optional[TimedeltaParser] = None,
         strict: bool = True,
-    ):
+    ) -> None:
         self.timezone = timezone
         self.timedelta_parser = timedelta_parser or TimedeltaParser.default(datetime.timedelta)
         self.strict = strict
@@ -461,7 +461,7 @@ class TimeParser(parser_base.Parser[datetime.time]):
                 minutes=argument.minute,
                 seconds=argument.second,
                 microseconds=argument.microsecond,
-            )
+            ),
         )
 
 
@@ -489,7 +489,7 @@ class TimezoneParser(parser_base.Parser[datetime.timezone]):
     default datetime parser will also return compressed results.
     """
 
-    def __init__(self, *, timedelta_parser: typing.Optional[TimedeltaParser] = None):
+    def __init__(self, *, timedelta_parser: typing.Optional[TimedeltaParser] = None) -> None:
         self.timedelta_parser = timedelta_parser or TimedeltaParser()
 
     @property

@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import typing
 
+import typing_extensions
+
 from ryoshu.api import parser as parser_api
 from ryoshu.internal import aio
-
-if typing.TYPE_CHECKING:
-    import typing_extensions
 
 __all__: typing.Sequence[str] = (
     "register_parser",
@@ -23,8 +22,8 @@ _PARSER_PRIORITY: dict[type[AnyParser], int] = {}
 
 
 def register_parser(
-    parser: typing.Type[ParserWithArgumentType[parser_api.ParserType]],
-    *types: typing.Type[parser_api.ParserType],
+    parser: type[ParserWithArgumentType[parser_api.ParserType]],
+    *types: type[parser_api.ParserType],
     priority: int = 0,
     force: bool = True,
 ) -> None:
@@ -69,7 +68,7 @@ def register_parser_for(
 
 
 def _issubclass(
-    cls: type, class_or_tuple: typing.Union[type, typing.Tuple[type, ...]]
+    cls: type, class_or_tuple: type | tuple[type, ...],
 ) -> bool:
     try:
         return issubclass(cls, class_or_tuple)
@@ -135,21 +134,18 @@ async def try_loads(
     parser: ParserWithArgumentType[parser_api.ParserType],
     argument: str,
     *,
-    source: typing.Optional[object] = None,
+    source: object | None = None,
 ) -> parser_api.ParserType:
     return await aio.eval_maybe_coro(
         parser.loads(argument, source=source)
         if is_sourced(parser)
-        else parser.loads(argument)
+        else parser.loads(argument),
     )
 
 
 class _ParserBase(typing.Protocol[parser_api.ParserType]):
-    # def __init__(self, *args: object, **kwargs: object) -> None:
-    #     super().__init__(*args, **kwargs)
-
     @classmethod
-    def default(cls, type_: type[parser_api.ParserType]) -> typing_extensions.Self:
+    def default(cls, type_: type[parser_api.ParserType], /) -> typing_extensions.Self:  # noqa: ARG003
         """Return the default implementation of this parser type.
 
         By default, this will just create the parser class with no arguments,
@@ -184,8 +180,8 @@ class Parser(
 
     is_sourced: typing.ClassVar[typing.Literal[False]] = False
 
-    def loads(  # noqa: D102
-        self, argument: typing.Any, /  # noqa: ANN401
+    def loads(
+        self, argument: typing.Any, /,  # noqa: ANN401
     ) -> aio.MaybeCoroutine[parser_api.ParserType]:
         # <<Docstring inherited from parser_api.Parser>>
         ...
@@ -207,7 +203,7 @@ class SourcedParser(
 
     is_sourced: typing.ClassVar[typing.Literal[True]] = True
 
-    def loads(  # noqa: D102
+    def loads(
         self,
         argument: typing.Any,  # noqa: ANN401
         /,

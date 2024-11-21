@@ -1,13 +1,12 @@
 """Parser implementations for (mostly) builtin types."""
 
-from __future__ import annotations
-
 import contextlib
 import inspect
 import string
 import typing
 
 import typing_extensions
+
 from ryoshu.impl.parser import base as parser_base
 from ryoshu.internal import aio
 
@@ -21,15 +20,20 @@ __all__: typing.Sequence[str] = (
     "UnionParser",
 )
 
-_NoneType: typing.Type[None] = type(None)
+_NoneType: type[None] = type(None)
 _NONES = (None, _NoneType)
 _INT_CHARS = string.digits + string.ascii_lowercase
 
-_NumberT = typing_extensions.TypeVar("_NumberT", bound=float, default=float)
+_BASE_BINARY: typing.Final = 2
+_BASE_OCTAL: typing.Final = 8
+_BASE_DECIMAL: typing.Final = 10
+_BASE_HEXADECIMAL: typing.Final = 12
+_BASE_MAX: typing.Final = len(_INT_CHARS)
+
 _CollectionT = typing_extensions.TypeVar(  # Simplest iterable container object.
-    "_CollectionT", bound=typing.Collection[object], default=typing.Collection[str]
+    "_CollectionT", bound=typing.Collection[object], default=typing.Collection[str],
 )
-_TupleT = typing_extensions.TypeVar("_TupleT", bound=typing.Tuple[typing.Any, ...])
+_TupleT = typing_extensions.TypeVar("_TupleT", bound=tuple[typing.Any, ...])
 _T = typing_extensions.TypeVar("_T")
 
 # NONE
@@ -189,9 +193,9 @@ class IntParser(parser_base.Parser[int]):
         *,
         signed: bool = True,
         base: int = 36,
-    ):
-        if not 2 <= base <= 36:
-            message = "Base must be between 2 and 36."
+    ) -> None:
+        if not _BASE_BINARY <= base <= _BASE_MAX:
+            message = f"Base must be between {_BASE_BINARY} and {_BASE_MAX}."
             raise ValueError(message)
 
         self.signed = signed
@@ -232,17 +236,17 @@ class IntParser(parser_base.Parser[int]):
         # Try to short-circuit as much as possible
         if argument < self.base:
             return str(argument)
-        if self.base == 2:
+        if self.base == _BASE_BINARY:
             return f"{argument:b}"
-        if self.base == 8:
+        if self.base == _BASE_OCTAL:
             return f"{argument:o}"
-        if self.base == 10:
+        if self.base == _BASE_DECIMAL:
             return str(argument)
-        if self.base == 16:
+        if self.base == _BASE_HEXADECIMAL:
             return f"{argument:x}"
 
         # Can't short-circuit, convert to string manually.
-        digits: typing.List[int] = []
+        digits: list[int] = []
         while argument:
             digits.append(argument % self.base)
             argument //= self.base
@@ -284,7 +288,7 @@ class BoolParser(parser_base.Parser[bool]):
         self,
         trues: typing.Optional[typing.Collection[str]] = None,
         falses: typing.Optional[typing.Collection[str]] = None,
-    ):
+    ) -> None:
         self.trues = _DEFAULT_TRUES if trues is None else trues
         self.falses = _DEFAULT_FALSES if falses is None else falses
 
@@ -304,7 +308,7 @@ class BoolParser(parser_base.Parser[bool]):
         """
         if argument in self.trues:
             return True
-        elif argument in self.falses:
+        if argument in self.falses:
             return False
 
         trues_str = ", ".join(map(repr, self.trues))
@@ -366,9 +370,9 @@ class StringParser(parser_base.Parser[str]):
         return argument
 
 
-def _resolve_collection(type_: typing.Type[_CollectionT]) -> typing.Type[_CollectionT]:
+def _resolve_collection(type_: type[_CollectionT]) -> type[_CollectionT]:
     # ContainerParser itself does not support tuples.
-    if issubclass(type_, typing.Tuple):
+    if issubclass(type_, tuple):
         message = (
             f"{CollectionParser.__name__}s do not support tuples. Please use a "
             f"{TupleParser.__name__} instead."
@@ -381,10 +385,10 @@ def _resolve_collection(type_: typing.Type[_CollectionT]) -> typing.Type[_Collec
 
     # Try to resolve an abstract type to a valid concrete structural subtype.
     if issubclass(type_, typing.Sequence):
-        return typing.cast(typing.Type[_CollectionT], list)
+        return typing.cast(type[_CollectionT], list)
 
-    elif issubclass(type_, typing.AbstractSet):
-        return typing.cast(typing.Type[_CollectionT], set)
+    if issubclass(type_, typing.AbstractSet):
+        return typing.cast(type[_CollectionT], set)
 
     message = f"Cannot infer a concrete type for abstract type {type_.__name__!r}."
     raise TypeError(message)
@@ -413,7 +417,7 @@ class TupleParser(parser_base.SourcedParser[_TupleT]):
 
     """
 
-    inner_parsers: typing.Tuple[parser_base.AnyParser, ...]
+    inner_parsers: tuple[parser_base.AnyParser, ...]
     """The parsers to use to parse the items inside the tuple.
 
     These define the inner types and the allowed number of items in the in the
@@ -431,7 +435,7 @@ class TupleParser(parser_base.SourcedParser[_TupleT]):
         """
     tuple_cls: type[_TupleT]
     """The tuple type to use.
-    
+
     This mainly exists to support NamedTuples.
     """
     # NOTE: NamedTuple does not show up in the class MRO so get_parser cannot
@@ -446,11 +450,12 @@ class TupleParser(parser_base.SourcedParser[_TupleT]):
     ) -> None:
         self.inner_parsers = inner_parsers or (StringParser.default(str),)
         self.sep = sep
-        self.tuple_cls = tuple_cls 
+        self.tuple_cls = tuple_cls
 
     @classmethod
     def default(cls, type_: type[_TupleT]) -> typing_extensions.Self:
-        if hasattr(type_, "__annotations__"):  # This is a namedtuple.
+        if hasattr(type_, "__annotations__"):  # noqa: SIM108
+            # This is a namedtuple.
             args = typing.get_type_hints(type_).values()
         else:
             args = typing.get_args(type_)
@@ -494,7 +499,7 @@ class TupleParser(parser_base.SourcedParser[_TupleT]):
             [
                 await parser_base.try_loads(parser, part, source=source)
                 for parser, part in zip(self.inner_parsers, parts)
-            ]
+            ],
         )
 
     async def dumps(self, argument: _TupleT) -> str:
@@ -520,7 +525,7 @@ class TupleParser(parser_base.SourcedParser[_TupleT]):
             [
                 await aio.eval_maybe_coro(parser.dumps(part))
                 for parser, part in zip(self.inner_parsers, argument)
-            ]
+            ],
         )
 
 
@@ -560,7 +565,7 @@ class CollectionParser(parser_base.SourcedParser[_CollectionT]):
     Note that, unlike a :class:`TupleParser`, a collection parser requires all
     items to be of the same type.
     """
-    collection_type: typing.Type[_CollectionT]
+    collection_type: type[_CollectionT]
     """The collection type for this parser.
 
     This is the type that holds the items, e.g. a :class:`list`.
@@ -584,12 +589,12 @@ class CollectionParser(parser_base.SourcedParser[_CollectionT]):
         self,
         inner_parser: typing.Optional[parser_base.AnyParser] = None,
         *,
-        collection_type: typing.Optional[typing.Type[_CollectionT]] = None,
+        collection_type: typing.Optional[type[_CollectionT]] = None,
         sep: str = ",",
     ) -> None:
         self.sep = sep
         self.collection_type = typing.cast(  # Pyright do be whack sometimes.
-            typing.Type[_CollectionT],
+            type[_CollectionT],
             list if collection_type is None else _resolve_collection(collection_type),
         )
         self.inner_parser = (
@@ -648,7 +653,7 @@ class CollectionParser(parser_base.SourcedParser[_CollectionT]):
             [
                 await aio.eval_maybe_coro(self.inner_parser.dumps(part))
                 for part in argument
-            ]
+            ],
         )
 
 
@@ -681,7 +686,7 @@ class UnionParser(parser_base.SourcedParser[_T], typing.Generic[_T]):
     """Whether this parser is optional."""
 
     def __init__(self, *inner_parsers: typing.Optional[parser_base.AnyParser]) -> None:
-        if len(inner_parsers) < 2:
+        if len(inner_parsers) < 2:  # noqa: PLR2004
             message = "A Union requires two or more type arguments."
             raise TypeError(message)
 

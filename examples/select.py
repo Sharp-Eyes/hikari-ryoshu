@@ -1,11 +1,11 @@
-"""A simple example on the use of selects with Ryoshu."""
+"""An example on the use of select menus with Ryoshu."""
 
-from __future__ import annotations
-
+import enum
 import os
 import typing
 
 import hikari
+
 import ryoshu
 
 bot = hikari.GatewayBot(os.environ["EXAMPLE_TOKEN"])
@@ -14,95 +14,100 @@ manager = ryoshu.get_manager()
 manager.add_to_bot(bot)
 
 
-LEFT = "\N{BLACK LEFT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}"
-MIDDLE = "\N{BLACK CIRCLE FOR RECORD}\N{VARIATION SELECTOR-16}"
-RIGHT = "\N{BLACK RIGHT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}"
+class Slot(enum.Enum):
+    LEFT = "\N{BLACK LEFT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}"
+    MIDDLE = "\N{BLACK CIRCLE FOR RECORD}\N{VARIATION SELECTOR-16}"
+    RIGHT = "\N{BLACK RIGHT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}"
+    DONE = "\N{WHITE HEAVY CHECK MARK}"
 
 SLOT_OPTIONS = [
-    hikari.impl.SelectOptionBuilder(label="Left", value="left", emoji=LEFT),
-    hikari.impl.SelectOptionBuilder(label="Middle", value="middle", emoji=MIDDLE),
-    hikari.impl.SelectOptionBuilder(label="Right", value="right", emoji=RIGHT),
-    hikari.impl.SelectOptionBuilder(label="Finalise", value="ok", emoji="\N{WHITE HEAVY CHECK MARK}"),
+    hikari.impl.SelectOptionBuilder(
+        label=slot.name.title(),
+        value=slot.name,
+        emoji=slot.value,
+    )
+    for slot in Slot
 ]
 
 
-BLACK_SQUARE = "\N{BLACK LARGE SQUARE}"
-BLUE_SQUARE = "\N{LARGE BLUE SQUARE}"
-BROWN_SQUARE = "\N{LARGE BROWN SQUARE}"
-GREEN_SQUARE = "\N{LARGE GREEN SQUARE}"
-PURPLE_SQUARE = "\N{LARGE PURPLE SQUARE}"
-RED_SQUARE = "\N{LARGE RED SQUARE}"
-WHITE_SQUARE = "\N{WHITE LARGE SQUARE}"
-YELLOW_SQUARE = "\N{LARGE YELLOW SQUARE}"
+class Colour(enum.Enum):
+    BLACK = "\N{BLACK LARGE SQUARE}"
+    RED = "\N{LARGE RED SQUARE}"
+    GREEN = "\N{LARGE GREEN SQUARE}"
+    BLUE = "\N{LARGE BLUE SQUARE}"
 
 COLOUR_OPTIONS = [
-    hikari.impl.SelectOptionBuilder(label="Black", value=BLACK_SQUARE, emoji=BLACK_SQUARE),
-    hikari.impl.SelectOptionBuilder(label="Blue", value=BLUE_SQUARE, emoji=BLUE_SQUARE),
-    hikari.impl.SelectOptionBuilder(label="Brown", value=BROWN_SQUARE, emoji=BROWN_SQUARE),
-    hikari.impl.SelectOptionBuilder(label="Green", value=GREEN_SQUARE, emoji=GREEN_SQUARE),
-    hikari.impl.SelectOptionBuilder(label="Purple", value=PURPLE_SQUARE, emoji=PURPLE_SQUARE),
-    hikari.impl.SelectOptionBuilder(label="Red", value=RED_SQUARE, emoji=RED_SQUARE),
-    hikari.impl.SelectOptionBuilder(label="White", value=WHITE_SQUARE, emoji=WHITE_SQUARE),
-    hikari.impl.SelectOptionBuilder(label="Yellow", value=YELLOW_SQUARE, emoji=YELLOW_SQUARE),
+    hikari.impl.SelectOptionBuilder(
+        label=colour.name.title(),
+        value=colour.name,
+        emoji=colour.value,
+    )
+    for colour in Colour
 ]
+
+
+class Colours(typing.NamedTuple):
+    left: Colour
+    middle: Colour
+    right: Colour
+
+    def replace(self, slot: Slot, colour: Colour) -> "Colours":
+        return self._replace(**{slot.name.lower(): colour})
+
+    def render(self) -> str:
+        return "".join(colour.value for colour in self) + "\n"
 
 
 @manager.register()
-class MySelect(ryoshu.ManagedTextSelectMenu):
+class SlotSelectMenu(ryoshu.ManagedTextSelectMenu):
     placeholder: typing.Optional[str] = "Please select a square."
     options: typing.Sequence[hikari.impl.SelectOptionBuilder] = SLOT_OPTIONS
 
-    slot: str = "0"
-    state: str = "slot"
-    colour_left: str = BLACK_SQUARE
-    colour_middle: str = BLACK_SQUARE
-    colour_right: str = BLACK_SQUARE
+    colours: Colours = Colours(Colour.BLACK, Colour.BLACK, Colour.BLACK)
 
     async def callback(self, event: hikari.InteractionCreateEvent) -> None:
         assert isinstance(event.interaction, hikari.ComponentInteraction)
-        selected = event.interaction.values[0]
+        selected = Slot[event.interaction.values[0]]
 
-        if self.state == "slot":
-            self.handle_slots(selected)
+        if selected == Slot.DONE:
+            self.is_disabled = True
+            component = self
 
         else:
-            self.handle_colours(selected)
+            component = ColourSelectMenu(slot=selected, colours=self.colours)
 
-        content = self.render_colours()
-        await event.app.rest.create_interaction_response(
-            interaction=event.interaction,
-            token=event.interaction.token,
-            content=content,
+        await event.interaction.create_initial_response(
             response_type=hikari.ResponseType.MESSAGE_UPDATE,
-            component=await ryoshu.into_action_row(self),
+            content=self.colours.render(),
+            component=await ryoshu.into_action_row(component),
         )
 
-    def handle_slots(self, selected: str) -> None:
-        if selected == "ok":
-            self.disabled = True
-            self.placeholder = "Woo!"
-            print(self.options)
-            return
 
-        self.options = COLOUR_OPTIONS
-        self.placeholder = f"Please select a colour for the {selected} square."
+@manager.register()
+class ColourSelectMenu(ryoshu.ManagedTextSelectMenu):
+    options: typing.Sequence[hikari.impl.SelectOptionBuilder] = COLOUR_OPTIONS
 
-        self.slot = selected
-        self.state = "colour"
+    slot: Slot
+    colours: Colours
 
-    def handle_colours(self, selected: str) -> None:
-        self.options = SLOT_OPTIONS
-        self.placeholder = "Please select which slot to modify."
+    def __attrs_post_init__(self) -> None:  # See the `attrs.py` example.
+        self.placeholder = f"Select a colour for the {self.slot.name.lower()} slot."
 
-        setattr(self, f"colour_{self.slot}", selected)
-        self.state = "slot"
+    async def callback(self, event: hikari.InteractionCreateEvent) -> None:
+        assert isinstance(event.interaction, hikari.ComponentInteraction)
+        selected = Colour[event.interaction.values[0]]
 
-    def render_colours(self) -> str:
-        return f"{self.colour_left}{self.colour_middle}{self.colour_right}\n"
+        new_colours = self.colours.replace(self.slot, selected)
+
+        await event.interaction.create_initial_response(
+            response_type=hikari.ResponseType.MESSAGE_UPDATE,
+            content=new_colours.render(),
+            component=await ryoshu.into_action_row(SlotSelectMenu(colours=new_colours)),
+        )
 
 
 @bot.listen()
-async def register_commands(event: hikari.StartingEvent):
+async def register_commands(event: hikari.StartingEvent) -> None:
     await bot.rest.set_application_commands(
         application=await bot.rest.fetch_application(),
         commands=[
@@ -116,12 +121,10 @@ async def handle_commands(event: hikari.InteractionCreateEvent) -> None:
     if not isinstance(event.interaction, hikari.CommandInteraction):
         return
 
-    select = MySelect()
+    select = SlotSelectMenu()
 
-    await event.app.rest.create_interaction_response(
-        interaction=event.interaction,
-        token=event.interaction.token,
-        content=select.render_colours(),
+    await event.interaction.create_initial_response(
+        content=select.colours.render(),
         response_type=hikari.ResponseType.MESSAGE_CREATE,
         component=await ryoshu.into_action_row(select),
     )

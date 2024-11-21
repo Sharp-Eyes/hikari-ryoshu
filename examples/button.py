@@ -4,6 +4,7 @@ import os
 import typing
 
 import hikari
+
 import ryoshu
 
 bot = hikari.GatewayBot(os.environ["EXAMPLE_TOKEN"])
@@ -30,7 +31,7 @@ class MyButton(ryoshu.ManagedButton):
 
 
 @bot.listen()
-async def register_commands(event: hikari.StartingEvent):
+async def register_commands(event: hikari.StartingEvent) -> None:
     await bot.rest.set_application_commands(
         application=await bot.rest.fetch_application(),
         commands=[

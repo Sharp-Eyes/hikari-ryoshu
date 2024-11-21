@@ -42,13 +42,13 @@ def main() -> typing.NoReturn:
     print(f"Running example {example!r}...")
 
     try:
-        with subprocess.Popen(
+        with subprocess.Popen(  # noqa: S603
             args,
             # Pipe all output to stdout...
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             # Ensure proper cwd...
-            cwd=os.getcwd(),
+            cwd=pathlib.Path.cwd(),
             # Set buffer mode to line-buffered...
             bufsize=1,
             # Set stdout mode to text...

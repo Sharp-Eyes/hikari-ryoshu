@@ -3,6 +3,7 @@
 import os
 
 import hikari
+
 import ryoshu
 
 bot = hikari.GatewayBot(os.environ["EXAMPLE_TOKEN"])
@@ -30,7 +31,7 @@ class CustomisableSelect(ryoshu.ManagedTextSelectMenu):
 
 
 @bot.listen()
-async def register_commands(event: hikari.StartingEvent):
+async def register_commands(event: hikari.StartingEvent) -> None:
     await bot.rest.set_application_commands(
         application=await bot.rest.fetch_application(),
         commands=[
@@ -40,8 +41,8 @@ async def register_commands(event: hikari.StartingEvent):
                     hikari.CommandOption(
                         type=hikari.OptionType.STRING,
                         name="options",
-                        description="The options for your select menu."
-                    )
+                        description="The options for your select menu.",
+                    ),
                 ),
         ],
     )

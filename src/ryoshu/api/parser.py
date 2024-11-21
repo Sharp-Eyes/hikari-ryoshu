@@ -1,7 +1,5 @@
 """Protocols for parser types."""
 
-from __future__ import annotations
-
 import typing
 
 import typing_extensions
@@ -10,8 +8,6 @@ from ryoshu.internal import aio
 
 __all__: typing.Sequence[str] = ("Parser",)
 
-
-_T = typing.TypeVar("_T")
 
 ParserType = typing_extensions.TypeVar(
     "ParserType",
@@ -202,6 +198,6 @@ class SourcedParser(typing.Protocol[ParserType, SourceType]):
 
 
 ParserWithArgumentType: typing_extensions.TypeAlias = typing.Union[
-    Parser[ParserType], SourcedParser[ParserType, typing.Any]
+    Parser[ParserType], SourcedParser[ParserType, typing.Any],
 ]
 AnyParser: typing_extensions.TypeAlias = ParserWithArgumentType[typing.Any]

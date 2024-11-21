@@ -6,8 +6,6 @@ least use the `ComponentMeta` metaclass. Without this, a lot of internal
 functionality will have to be manually re-implemented.
 """
 
-from __future__ import annotations
-
 import abc
 import inspect
 import sys
@@ -15,6 +13,7 @@ import typing
 
 import attrs
 import typing_extensions
+
 from ryoshu import fields as fields
 from ryoshu.api import component as component_api
 from ryoshu.impl import factory as factory_impl
@@ -23,7 +22,7 @@ from ryoshu.impl import parser as parser_impl
 __all__: typing.Sequence[str] = ("ComponentBase",)
 
 
-def _is_attrs_pass(namespace: typing.Dict[str, typing.Any]) -> bool:
+def _is_attrs_pass(namespace: dict[str, typing.Any]) -> bool:
     """Check if attrs has already influenced the class' namespace.
 
     Note that we check the namespace instead of using `attrs.has`, because
@@ -48,11 +47,11 @@ def _eval_type(cls: type, annotation: typing.Any) -> typing.Any:  # noqa: ANN401
         annotation = typing.ForwardRef(annotation, is_argument=False)
 
     # Evaluate the typehint with the provided globals.
-    return typing._eval_type(annotation, cls_globals, None)  # pyright: ignore
+    return typing._eval_type(annotation, cls_globals, None)  # pyright: ignore  # noqa: PGH003, SLF001
 
 
 def _validate_overwrite(
-    attribute: attrs.Attribute[object],
+    attribute: "attrs.Attribute[object]",
     super_field_type: fields.FieldType,
     overwrite_field_type: typing.Optional[fields.FieldType],
 ) -> None:
@@ -67,7 +66,7 @@ def _validate_overwrite(
     raise TypeError(message)
 
 
-def _field_transformer(cls: type, attributes: list[attrs.Attribute[object]]) -> list[attrs.Attribute[object]]:
+def _field_transformer(cls: type, attributes: list["attrs.Attribute[object]"]) -> list["attrs.Attribute[object]"]:
     # Collect attrs from superclasses...
     super_fields = fields.get_fields(cls) if attrs.has(cls) else ()
     super_attributes = {field.name: field for field in super_fields}
@@ -111,7 +110,7 @@ def _field_transformer(cls: type, attributes: list[attrs.Attribute[object]]) -> 
 
 
 @typing_extensions.dataclass_transform(
-    kw_only_default=True, field_specifiers=(fields.field, fields.internal)
+    kw_only_default=True, field_specifiers=(fields.field, fields.internal),
 )
 class ComponentMeta(abc.ABCMeta):
     """Metaclass for all Ryoshu component types.
@@ -127,14 +126,14 @@ class ComponentMeta(abc.ABCMeta):
     # HACK: Pyright doesn't like this but it does seem to work with typechecking
     #       down the line. I might change this later (e.g. define it on
     #       BaseComponent instead, but that comes with its own challenges).
-    factory: component_api.ComponentFactory[typing_extensions.Self]  # pyright: ignore
+    factory: component_api.ComponentFactory[typing_extensions.Self]  # pyright: ignore[reportUnknownMemberType, reportGeneralTypeIssues]
 
     def __new__(
-        mcls,  # pyright: ignore[reportSelfClsParameterName]
+        metacls,  # pyright: ignore[reportSelfClsParameterName]
         name: str,
         bases: tuple[type, ...],
-        namespace: typing.Dict[str, typing.Any],
-    ) -> ComponentMeta:
+        namespace: dict[str, typing.Any],
+    ) -> "ComponentMeta":
         # NOTE: This is run twice for each new class; once for the actual class
         #       definition, and once more by attrs.define(). We ensure we only
         #       run the full class creation logic once.
@@ -142,7 +141,7 @@ class ComponentMeta(abc.ABCMeta):
         # Set slots if attrs hasn't already done so...
         namespace.setdefault("__slots__", ())
 
-        cls = typing.cast("type[ComponentBase]", super().__new__(mcls, name, bases, namespace))
+        cls = typing.cast("type[ComponentBase]", super().__new__(metacls, name, bases, namespace))
         if _is_attrs_pass(namespace):
             return cls
 

@@ -1,7 +1,5 @@
 """Default implementation of button-based components."""
 
-from __future__ import annotations
-
 import abc
 import typing
 
@@ -9,6 +7,7 @@ import hikari
 import hikari.impl.special_endpoints
 import hikari.internal
 import hikari.internal.attrs_extensions
+
 from ryoshu import fields
 from ryoshu.api import component as component_api
 from ryoshu.impl.component import base as component_base
@@ -32,7 +31,7 @@ class ManagedButton(component_base.ComponentBase, component_api.ManagedButton, a
     - is_disabled
 
     Any other fields will be interpreted as custom-id fields.
-    
+
     """
     label: typing.Optional[str] = fields.internal(default=None)
     style: typing.Union[hikari.ButtonStyle, int] = fields.internal(default=hikari.ButtonStyle.SECONDARY)

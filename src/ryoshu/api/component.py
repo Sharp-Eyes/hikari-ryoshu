@@ -1,15 +1,11 @@
 """Protocols for components and component managers."""
 
-from __future__ import annotations
-
 import abc
 import typing
 
 import hikari
 import hikari.components
-
-if typing.TYPE_CHECKING:
-    import typing_extensions
+import typing_extensions
 
 __all__: typing.Sequence[str] = (
     "ManagedComponent",
@@ -18,8 +14,6 @@ __all__: typing.Sequence[str] = (
     "ComponentManager",
 )
 
-
-_T = typing.TypeVar("_T")
 
 ComponentT = typing.TypeVar("ComponentT", bound="ManagedComponent")
 """A type hint for a (subclass of) a Ryoshu component.
@@ -34,8 +28,8 @@ class ManagedComponent(abc.ABC):
 
     __slots__: typing.Sequence[str] = ()
 
-    factory: typing.ClassVar[ComponentFactory[ManagedComponent]]
-    manager: typing.ClassVar[typing.Optional[ComponentManager]]
+    factory: typing.ClassVar["ComponentFactory[typing_extensions.Self]"]
+    manager: typing.ClassVar[typing.Optional["ComponentManager"]]
 
     @abc.abstractmethod
     async def into_builder(self) -> hikari.api.ComponentBuilder:
@@ -158,12 +152,12 @@ class ComponentManager(typing.Protocol):
         ...
 
     @property
-    def children(self) -> typing.Collection[ComponentManager]:
+    def children(self) -> typing.Collection[typing_extensions.Self]:
         """The children of this component manager."""
         ...
 
     @property
-    def components(self) -> typing.Mapping[str, typing.Type[ManagedComponent]]:
+    def components(self) -> typing.Mapping[str, type[ManagedComponent]]:
         """The components registered to this manager or any of its children.
 
         In case a custom implementation is made, special care must be taken to
@@ -172,14 +166,14 @@ class ComponentManager(typing.Protocol):
         ...
 
     @property
-    def parent(self) -> typing.Optional[ComponentManager]:
+    def parent(self) -> typing.Optional[typing_extensions.Self]:
         """The parent of this manager.
 
         Returns :data:`None` in case this is the root manager.
         """
         ...
 
-    def make_identifier(self, component_type: typing.Type[ManagedComponent], /) -> str:
+    def make_identifier(self, component_type: type[ManagedComponent], /) -> str:
         """Make an identifier for the provided component class.
 
         This is used to store the component in :attr:`components`, and to
@@ -199,7 +193,7 @@ class ComponentManager(typing.Protocol):
         """
         ...
 
-    def get_identifier(self, custom_id: str, /) -> typing.Tuple[str, typing.Sequence[str]]:
+    def get_identifier(self, custom_id: str, /) -> tuple[str, typing.Sequence[str]]:
         """Extract the identifier and parameters from a custom id.
 
         This is used to check whether the identifier is registered in
@@ -233,7 +227,7 @@ class ComponentManager(typing.Protocol):
         ...
 
     async def parse_component_interaction(
-        self, interaction: hikari.ComponentInteraction, /
+        self, interaction: hikari.ComponentInteraction, /,
     ) -> typing.Optional[ManagedComponent]:
         """Parse an interaction and construct a rich component from it.
 
@@ -258,7 +252,7 @@ class ComponentManager(typing.Protocol):
         """
         ...
 
-    def register_component(self, component_type: typing.Type[ComponentT], /) -> typing.Type[ComponentT]:
+    def register_component(self, component_type: type[ComponentT], /) -> type[ComponentT]:
         r"""Register a component to this component manager.
 
         This returns the provided class, such that this method can serve as a
@@ -277,7 +271,7 @@ class ComponentManager(typing.Protocol):
         """
         ...
 
-    def deregister_component(self, component_type: typing.Type[ManagedComponent], /) -> None:
+    def deregister_component(self, component_type: type[ManagedComponent], /) -> None:
         """Deregister a component from this component manager.
 
         After deregistration, the component will no be tracked, and its
@@ -343,7 +337,7 @@ class ComponentManager(typing.Protocol):
         """
         ...
 
-    async def invoke(self, event: hikari.InteractionCreateEvent, /) -> None:  # noqa: D102
+    async def invoke(self, event: hikari.InteractionCreateEvent, /) -> None:
         """A"""
 
     async def invoke_component(self, event: hikari.InteractionCreateEvent, component: ManagedComponent) -> None:
@@ -378,7 +372,7 @@ class ComponentFactory(typing.Protocol[ComponentT]):
     @classmethod
     def from_component(
         cls,
-        component: typing.Type[ComponentT],
+        component: type[ComponentT],
         /,
     ) -> typing_extensions.Self:
         """Create a component factory from the provided component.

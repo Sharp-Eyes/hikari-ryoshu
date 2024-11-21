@@ -4,6 +4,7 @@ import os
 import typing
 
 import hikari
+
 import ryoshu
 
 DEFAULT_OPTION = hikari.impl.SelectOptionBuilder("Please enable some options.", "placeholder", is_default=True)
@@ -26,16 +27,17 @@ class OptionsToggleButton(ryoshu.ManagedButton):
             return []
 
         return [hikari.impl.SelectOptionBuilder(option, option) for option in self.options]
-        
 
-    def update_select(self, components: typing.Sequence[ryoshu.api.ManagedComponent]):
+
+    def update_select(self, components: typing.Sequence[ryoshu.api.ManagedComponent]) -> None:
         select: typing.Optional[DynamicSelectMenu] = None
         options: list[hikari.impl.SelectOptionBuilder] = []
 
         for component in components:
             if isinstance(component, DynamicSelectMenu):
                 if select is not None:
-                    raise RuntimeError("Found more than one DynamicSelectMenu.")
+                    msg = "Found more than one DynamicSelectMenu."
+                    raise RuntimeError(msg)
 
                 select = component
 
@@ -43,11 +45,12 @@ class OptionsToggleButton(ryoshu.ManagedButton):
                 options.extend(component.parse_options())
 
         if not select:
-            raise RuntimeError("Could not find a DynamicSelectMenu.")
+            msg = "Could not find a DynamicSelectMenu."
+            raise RuntimeError(msg)
 
         select.set_options(options)
 
-    async def callback(self, event: hikari.InteractionCreateEvent):
+    async def callback(self, event: hikari.InteractionCreateEvent) -> None:
         assert isinstance(event.interaction, hikari.ComponentInteraction)
 
         # Get all components on the message for easier re-sending.
@@ -69,7 +72,7 @@ class OptionsToggleButton(ryoshu.ManagedButton):
         # Re-send and update all components.
         await event.interaction.create_initial_response(
             hikari.ResponseType.MESSAGE_UPDATE,
-            components=await ryoshu.into_action_rows(all_components)
+            components=await ryoshu.into_action_rows(all_components),
         )
 
 
@@ -77,10 +80,10 @@ class OptionsToggleButton(ryoshu.ManagedButton):
 class DynamicSelectMenu(ryoshu.ManagedTextSelectMenu):
     """A select menu that has its options externally managed."""
 
-    def __attrs_post_init__(self):  # See the `attrs.py` example.
+    def __attrs_post_init__(self) -> None:  # See the `attrs.py` example.
         self.set_options([])
 
-    def set_options(self, options: typing.Sequence[hikari.impl.SelectOptionBuilder]):
+    def set_options(self, options: typing.Sequence[hikari.impl.SelectOptionBuilder]) -> None:
         if options:
             self.options = options
             self.max_values = len(options)
@@ -104,7 +107,7 @@ class DynamicSelectMenu(ryoshu.ManagedTextSelectMenu):
 
 
 @bot.listen()
-async def register_commands(event: hikari.StartingEvent):
+async def register_commands(event: hikari.StartingEvent) -> None:
     await bot.rest.set_application_commands(
         application=await bot.rest.fetch_application(),
         commands=[
@@ -128,7 +131,7 @@ async def handle_commands(event: hikari.InteractionCreateEvent) -> None:
                     OptionsToggleButton(label="symbols", options=["*", "&", "#", "+", "-"]),
                 ],
                 [DynamicSelectMenu()],
-            ]
+            ],
         ),
     )
 

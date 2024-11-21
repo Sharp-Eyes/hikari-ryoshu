@@ -2,9 +2,10 @@
 
 import enum
 import typing
-import typing_extensions
 
 import hikari.internal.enums as hikari_enum
+import typing_extensions
+
 from ryoshu.impl.parser import base as parser_base
 from ryoshu.internal import aio
 
@@ -14,7 +15,7 @@ _AnyEnum = typing.Union[enum.Enum, hikari_enum.Enum, hikari_enum.Flag]
 _EnumT = typing.TypeVar("_EnumT", bound=_AnyEnum)
 
 
-def _get_enum_type(enum_class: typing.Type[_AnyEnum]) -> typing.Optional[type]:
+def _get_enum_type(enum_class: type[_AnyEnum]) -> typing.Optional[type]:
     if issubclass(enum_class, hikari_enum.Flag):
         return int
 
@@ -25,7 +26,7 @@ def _get_enum_type(enum_class: typing.Type[_AnyEnum]) -> typing.Optional[type]:
     # Get first member's type
     member_iter = iter(enum_class)
     maybe_type = typing.cast(  # python typing sucks.
-        typing.Type[typing.Any], type(next(member_iter).value)
+        type[typing.Any], type(next(member_iter).value),
     )
 
     # If all members match this type, return it.
@@ -63,7 +64,7 @@ class EnumParser(parser_base.SourcedParser[_EnumT]):
 
     """
 
-    enum_class: typing.Type[_EnumT]
+    enum_class: type[_EnumT]
     """The enum or flag class to use for parsing."""
     store_by_value: bool
     """Whether :meth:`loads` and :meth:`dumps` expect the enum's value type or a string.
@@ -80,7 +81,7 @@ class EnumParser(parser_base.SourcedParser[_EnumT]):
 
     def __init__(
         self,
-        enum_class: typing.Type[_EnumT],
+        enum_class: type[_EnumT],
         *,
         store_by_value: bool = True,
     ) -> None:
@@ -96,7 +97,7 @@ class EnumParser(parser_base.SourcedParser[_EnumT]):
                     " or make sure all enum members are of the same type."
                 )
                 raise ValueError(message)
-            
+
             value_type = str  # Store member names as strings.
 
         self.enum_class = enum_class
@@ -135,8 +136,7 @@ class EnumParser(parser_base.SourcedParser[_EnumT]):
 
         if self.store_by_value:
             return self.enum_class(parsed)
-        else:
-            return self.enum_class[parsed]
+        return self.enum_class[parsed]
 
     async def dumps(self, argument: _EnumT) -> str:
         """Dump an enum member into a string.

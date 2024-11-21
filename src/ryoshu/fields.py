@@ -1,16 +1,12 @@
 """Field implementations extending :func:`attrs.field`."""
 
-from __future__ import annotations
-
 import enum
 import typing
 
 import attrs
-import hikari
 import typing_extensions
 
-if typing.TYPE_CHECKING:
-    from ryoshu.api import parser as parser_api
+from ryoshu.api import parser as parser_api
 
 __all__: typing.Sequence[str] = ("field",)
 
@@ -62,7 +58,7 @@ class FieldType(enum.Flag):
     """
 
 
-def get_parser(field: attrs.Attribute[typing.Any]) -> typing.Optional[parser_api.AnyParser]:
+def get_parser(field: "attrs.Attribute[typing.Any]") -> typing.Optional[parser_api.AnyParser]:
     """Get the user-provided parser of the provided field.
 
     Parameters
@@ -82,7 +78,7 @@ def get_parser(field: attrs.Attribute[typing.Any]) -> typing.Optional[parser_api
 
 
 def get_field_type(
-    field: attrs.Attribute[typing.Any], default: _T = None
+    field: "attrs.Attribute[typing.Any]", default: _T = None,
 ) -> typing.Union[FieldType, _T]:
     """Get the :class:`FieldType` of the field.
 
@@ -103,7 +99,7 @@ def get_field_type(
     return field.metadata.get(FieldMetadata.FIELDTYPE, default)
 
 
-def is_field_of_type(field: attrs.Attribute[typing.Any], kind: FieldType) -> bool:
+def is_field_of_type(field: "attrs.Attribute[typing.Any]", kind: FieldType) -> bool:
     """Check whether or not a field is marked as the provided :class:`FieldType`.
 
     Parameters
@@ -123,7 +119,7 @@ def is_field_of_type(field: attrs.Attribute[typing.Any], kind: FieldType) -> boo
     return bool(set_type and set_type & kind)  # Check if not None, then check if match.
 
 
-def get_fields(cls: type, /, *, kind: FieldType = FieldType.ALL) -> typing.Sequence[attrs.Attribute[typing.Any]]:
+def get_fields(cls: type, /, *, kind: FieldType = FieldType.ALL) -> typing.Sequence["attrs.Attribute[typing.Any]"]:
     r"""Get the Ryoshu fields of a class.
 
     Parameters
@@ -265,7 +261,3 @@ def internal(
         on_setattr=attrs.setters.frozen if frozen else None,
         metadata={FieldMetadata.FIELDTYPE: FieldType.INTERNAL},
     )
-
-
-def none_to_undefined(value: typing.Optional[_T]) -> hikari.UndefinedOr[_T]:
-    return hikari.UNDEFINED if value is None else value

@@ -5,6 +5,7 @@ import typing
 
 import attrs
 import hikari
+
 import ryoshu
 import ryoshu.fields
 
@@ -60,23 +61,14 @@ async def wrapper(
     manager: ryoshu.ComponentManager,
     component: ryoshu.api.ManagedComponent,
     event: hikari.InteractionCreateEvent,
-):
+) -> typing.AsyncGenerator[None, None]:
     # Do something before the component callback runs...
     assert isinstance(event.interaction, hikari.ComponentInteraction)
-    username = event.interaction.user.display_name
-    print(
-        f"User {username!r} interacted with component"
-        f" {type(component).__name__!r}..."
-    )
 
     # Yield to run the component callback (and other wrappers)...
     yield
 
     # Do something after the component callback runs...
-    print(
-        f"User {username!r}s interaction with component"
-        f" {type(component).__name__!r} was successful!"
-    )
 
 
 @attrs.define(auto_exc=True)
@@ -92,7 +84,7 @@ async def check_wrapper(
     manager: ryoshu.api.ComponentManager,
     component: ryoshu.api.ManagedComponent,
     event: hikari.InteractionCreateEvent,
-):
+) -> typing.AsyncGenerator[None, None]:
     # Ensure that the component is used by the same person who created the
     # component by means of an interaction earlier.
     interaction = event.interaction
@@ -120,7 +112,7 @@ async def error_handler(
     component: ryoshu.api.ManagedComponent,
     event: hikari.InteractionCreateEvent,
     exception: Exception,
-):
+) -> bool:
     # Return True if the error was properly handled, and False otherwise.
     if isinstance(exception, InvalidUserError):
         await event.app.rest.create_interaction_response(
@@ -138,13 +130,13 @@ async def error_handler(
 # Standard hikari ExceptionEvent listener to validate that unhandled errors
 # indeed propagate...
 @bot.listen(hikari.ExceptionEvent)  # Workaround for generic typehint...
-async def hikari_error_handler(event: hikari.ExceptionEvent[hikari.Event]):
-    print("Exception handled by hikari:", repr(event.exception))
+async def hikari_error_handler(event: hikari.ExceptionEvent[hikari.Event]) -> None:
+    pass
 
 
 # Slash commands to test the components...
 @bot.listen()
-async def register_commands(event: hikari.StartingEvent):
+async def register_commands(event: hikari.StartingEvent) -> None:
     await bot.rest.set_application_commands(
         application=await bot.rest.fetch_application(),
         commands=[

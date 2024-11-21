@@ -1,19 +1,16 @@
 """Standard implementation of the overarching component factory type."""
 
-from __future__ import annotations
-
 import types
 import typing
 
 import attr
+import typing_extensions
+
 from ryoshu import fields
 from ryoshu.api import component as component_api
 from ryoshu.api import parser as parser_api
 from ryoshu.impl.parser import base as parser_base
 from ryoshu.internal import aio
-
-if typing.TYPE_CHECKING:
-    import typing_extensions
 
 __all__: typing.Sequence[str] = ("ComponentFactory",)
 
@@ -33,20 +30,20 @@ class ComponentFactory(
     component factory can simply be created using :meth:`from_component`.
     """
 
-    parsers: ParserMapping = attr.field(converter=types.MappingProxyType)  # type: ignore
+    parsers: ParserMapping = attr.field(converter=types.MappingProxyType)  # pyright: ignore[reportGeneralTypeIssues]
     """A mapping of custom id field name to that field's parser."""
-    component: typing.Type[component_api.ComponentT]
+    component: type[component_api.ComponentT]
     """The component type that this factory builds."""
 
     @classmethod
-    def from_component(  # noqa: D102
+    def from_component(
         cls,
-        component: typing.Type[component_api.ManagedComponent],
+        component: type[component_api.ManagedComponent],
     ) -> typing_extensions.Self:
         # <<docstring inherited from api.components.ComponentFactory>>
         parser: typing.Optional[parser_api.AnyParser]
 
-        parsers: typing.Dict[str, parser_base.AnyParser] = {}
+        parsers: dict[str, parser_base.AnyParser] = {}
         for field in fields.get_fields(component, kind=fields.FieldType.CUSTOM_ID):
             parser = fields.get_parser(field)
 
@@ -59,7 +56,7 @@ class ComponentFactory(
 
         return cls(
             parsers,
-            typing.cast(typing.Type[component_api.ComponentT], component),
+            typing.cast(type[component_api.ComponentT], component),
         )
 
     async def loads_param(
@@ -113,7 +110,7 @@ class ComponentFactory(
         result = parser.dumps(value)
         return await aio.eval_maybe_coro(result)
 
-    async def load_params(  # noqa: D102
+    async def load_params(
         self,
         source: object,
         params: typing.Sequence[str],
@@ -135,8 +132,8 @@ class ComponentFactory(
             if value
         }
 
-    async def dump_params(  # noqa: D102
-        self, component: component_api.ComponentT
+    async def dump_params(
+        self, component: component_api.ComponentT,
     ) -> typing.Mapping[str, str]:
         # <<docstring inherited from api.components.ComponentFactory>>
 
@@ -145,7 +142,7 @@ class ComponentFactory(
             for field in self.parsers
         }
 
-    async def build_component(  # noqa: D102
+    async def build_component(
         self,
         reference: object,
         params: typing.Sequence[str],
@@ -178,7 +175,7 @@ class NoopFactory(component_api.ComponentFactory[typing.Any]):
 
     @classmethod
     def from_component(
-        cls, _: typing.Type[component_api.ManagedComponent]
+        cls, _: type[component_api.ManagedComponent],
     ) -> typing_extensions.Self:
         # <<docstring inherited from api.components.ComponentFactory>>
 
