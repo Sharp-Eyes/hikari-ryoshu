@@ -21,8 +21,8 @@ _T = typing_extensions.TypeVar("_T", default=typing.Any)
 # Workaround and re-export for attrs typing.
 import attr._make  # noqa: E402
 
-NothingType: typing_extensions.TypeAlias = attr._make._Nothing  # pyright: ignore[reportPrivateUsage]
-NOTHING = attrs.NOTHING
+NothingType: typing_extensions.TypeAlias = attr._make._Nothing  # pyright: ignore[reportPrivateUsage]  # noqa: SLF001
+NOTHING = attr._make._Nothing.NOTHING  # pyright: ignore[reportPrivateUsage]  # noqa: SLF001
 
 
 class FieldMetadata(str, enum.Enum):
@@ -138,9 +138,30 @@ def get_fields(cls: type, /, *, kind: FieldType = FieldType.ALL) -> typing.Seque
     return [field for field in attrs.fields(cls) if is_field_of_type(field, kind)]
 
 
+@typing.overload
 def field(
-    default: typing.Union[_T, NothingType] = attrs.NOTHING,
+    default: NothingType = NOTHING,
     *,
+    factory: typing.Callable[[], _T],
+    parser: typing.Optional[parser_api.ParserWithArgumentType[_T]] = None,
+) -> _T:
+    ...
+
+
+@typing.overload
+def field(
+    default: _T,
+    *,
+    factory: None = None,
+    parser: typing.Optional[parser_api.ParserWithArgumentType[_T]] = None,
+) -> _T:
+    ...
+
+
+def field(
+    default: typing.Union[_T, NothingType] = NOTHING,
+    *,
+    factory: typing.Optional[typing.Callable[[], _T]] = None,
     parser: typing.Optional[parser_api.ParserWithArgumentType[_T]] = None,
 ) -> _T:
     r"""Define a custom ID field for the component.
@@ -162,6 +183,13 @@ def field(
         A new field with the provided default and/or parser.
 
     """
+    if isinstance(default, NothingType):
+        if not factory:
+            message = "Please provide either default or factory."
+            raise RuntimeError(message)
+
+        default = attrs.Factory(factory)
+
     return attrs.field(
         default=typing.cast(_T, default),
         kw_only=True,
@@ -172,10 +200,34 @@ def field(
     )
 
 
+@typing.overload
+def internal(
+    default: NothingType = NOTHING,
+    *,
+    alias: typing.Optional[str] = None,
+    factory: typing.Callable[[], _T],
+    frozen: bool = False,
+) -> _T:
+    ...
+
+
+@typing.overload
 def internal(
     default: _T,
     *,
-    alias: str | None = None,
+    alias: typing.Optional[str] = None,
+    factory: None = None,
+    frozen: bool = False,
+) -> _T:
+    ...
+
+
+
+def internal(
+    default: typing.Union[_T, NothingType] = NOTHING,
+    *,
+    alias: typing.Optional[str] = None,
+    factory: typing.Optional[typing.Callable[[], _T]] = None,
     frozen: bool = False,
 ) -> _T:
     r"""Declare a field as internal.
@@ -200,6 +252,13 @@ def internal(
         A new field with the provided default and frozen status.
 
     """
+    if isinstance(default, NothingType):
+        if not factory:
+            message = "Please provide either default or factory."
+            raise RuntimeError(message)
+
+        default = attrs.Factory(factory)
+
     return attrs.field(
         alias=alias,
         default=default,
