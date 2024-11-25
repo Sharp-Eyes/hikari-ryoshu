@@ -136,6 +136,14 @@ def get_fields(cls: type, /, *, kind: FieldType = FieldType.ALL) -> typing.Seque
 
 @typing.overload
 def field(
+    *,
+    parser: typing.Optional[parser_api.ParserWithArgumentType[_T]] = None,
+) -> _T:
+    ...
+
+
+@typing.overload
+def field(
     default: NothingType = NOTHING,
     *,
     factory: typing.Callable[[], _T],
@@ -151,6 +159,16 @@ def field(
     factory: None = None,
     parser: typing.Optional[parser_api.ParserWithArgumentType[_T]] = None,
 ) -> _T:
+    ...
+
+
+@typing.overload
+def field(
+    default: _T,
+    *,
+    factory: typing.Callable[[], _T],
+    parser: typing.Optional[parser_api.ParserWithArgumentType[_T]] = None,
+) -> typing.NoReturn:
     ...
 
 
@@ -216,7 +234,6 @@ def internal(
     frozen: bool = False,
 ) -> _T:
     ...
-
 
 
 def internal(
