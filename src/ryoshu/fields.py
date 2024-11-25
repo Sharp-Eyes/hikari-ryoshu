@@ -179,9 +179,9 @@ def field(
         A new field with the provided default and/or parser.
 
     """
-    if isinstance(default, NothingType):
-        if not factory:
-            message = "Please provide either default or factory."
+    if factory is not None:
+        if default is not NOTHING:
+            message = "Please provide one of default or factory, not both."
             raise RuntimeError(message)
 
         default = attrs.Factory(factory)
@@ -248,12 +248,16 @@ def internal(
         A new field with the provided default and frozen status.
 
     """
-    if isinstance(default, NothingType):
-        if not factory:
+    if default is NOTHING:
+        if factory is None:
             message = "Please provide either default or factory."
             raise RuntimeError(message)
 
         default = attrs.Factory(factory)
+
+    elif factory is not None:
+        message = "Please provide one of default or factory, not both."
+        raise RuntimeError(message)
 
     return attrs.field(
         alias=alias,
