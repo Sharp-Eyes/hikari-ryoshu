@@ -13,8 +13,6 @@ import typing_extensions
 
 from ryoshu import fields
 from ryoshu.api import component as component_api
-from ryoshu.impl.parser import base as parser_base
-from ryoshu.internal import context
 
 __all__: typing.Sequence[str] = ("ComponentManager", "get_manager", "check_manager")
 
@@ -665,18 +663,17 @@ class ComponentManager(component_api.ComponentManager):
 
     async def invoke(self, event: hikari.InteractionCreateEvent) -> None:
         # <<docstring inherited from api.components.ComponentManager>>
+        interaction = event.interaction
 
-        with context.wrap(parser_base.REST_CTX, event.app):
-            interaction = event.interaction
-            if isinstance(interaction, hikari.ComponentInteraction):
-                component = await self.parse_component_interaction(interaction)
-                if not (component and component.manager):
-                    return
+        if isinstance(interaction, hikari.ComponentInteraction):
+            component = await self.parse_component_interaction(interaction)
+            if not (component and component.manager):
+                return
 
-                # Set the contextvar for this invocation so that other methods can
-                # use the same component instance, then invoke the component.
-                with context.wrap(_COMPONENT_CTX, (component, interaction.custom_id)):
-                    await component.manager.invoke_component(event, component)
+            # Set the contextvar for this invocation so that other methods can
+            # use the same component instance, then invoke the component.
+            _COMPONENT_CTX.set((component, interaction.custom_id))
+            await component.manager.invoke_component(event, component)
 
     async def invoke_component(
         self,
